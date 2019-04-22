@@ -6,7 +6,8 @@ module Memory_RAM#(
     input [(ADDR_WIDTH-1):0] addr,	//Address for ram
 	input [(DATA_WIDTH-1):0] wdata,	//Write Data for RAM data memory
     input we,						//Write enable signal
-	input clk, 							
+	input clk, 		
+	/* input MemRead,					 */
 	//output
 	output [(DATA_WIDTH-1):0] q
 );
