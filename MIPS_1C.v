@@ -351,7 +351,8 @@ mux4to1 #(
     .mux_sel(MemtoReg_wire),			//@Control signal:  0=ALU , 1=Memory    
     .data1(demux_aluout_0),		 			//From ALU result	
     .data2( Mem_or_Periph_Data ),				//From Memory: Read data
-    .data3(PC_current),             //for JAL instruction, write to Reg 31 ($ra)
+    //.data3(PC_current),             //for JAL instruction, write to Reg 31 ($ra)
+    .data3(PC_next),             //for JAL instruction, write to Reg 31 ($ra)
     .data4( peripheral_data ),        //Data from peripherals such as UART
     .Data_out(datatoWD3) 				//This have the Address for Memory input
 );

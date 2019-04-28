@@ -36,7 +36,9 @@ get_uart:
 	
 Factorial:
 	slti $t2, $a0, 1 #Starts Factorial execution. if n = 1
+	andi $zero,$zero,0
 	beq $t2, $zero, Loop # Branch to Loop
+	andi $zero,$zero,0		#workaround, need to be fixed. It's written 
 	addi $v0, $zero, 1 # Loading 1
 	jr $ra # Return to the caller	
 Loop:	
