@@ -3,7 +3,9 @@ module VirtualMemory_unit
     parameter ADDR_WIDTH=32
 )
 (
+    /* input */
     input [ADDR_WIDTH-1:0]  address,
+    /* output */
     output [ADDR_WIDTH-1:0] translated_addr,
     output [ADDR_WIDTH-1:0] MIPS_address,
     output aligment_error   //1= aligment error , 0 = correct address
@@ -19,6 +21,8 @@ assign add_tmp = address - 32'h400000;
 assign translated_addr = (add_tmp >> 2) ;  
 assign MIPS_address = add_tmp + 32'h400000;
 //assign MIPS_address = add_tmp + 32'h3FFFFC;
+
+
 
 
 endmodule

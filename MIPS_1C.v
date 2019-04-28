@@ -38,6 +38,8 @@ wire [5 : 0]funct_wire/*synthesis keep*/;				//select the function
 wire [15: 0]immediate_data_wire/*synthesis keep*/;		//immediate field (I type)
 wire [15: 0]immediateData_toextend/*synthesis keep*/;		
 wire [25: 0]address_j_wire/*synthesis keep*/;			//address field for (J type)
+wire flag_R_type_wire;
+wire flag_I_type_wire;
 /***************************************************************
 Signals for A3 Destination mux
 ***************************************************************/
@@ -70,7 +72,7 @@ wire [DATA_WIDTH-1:0] SrcB/*synthesis keep*/;			//input 1 of ALU
 wire [3:0]ALUControl_wire/*synthesis keep*/; 			//@Control signal: Selects addition operation (010b)
 wire [DATA_WIDTH-1 : 0]ALUResult_tmp/*synthesis keep*/;	//Output result of ALU unit
 wire [DATA_WIDTH-1 : 0]ALUOut/*synthesis keep*/;		//Registerd output of ALU
-wire [1:0]sel_muxALU_srcB/*synthesis keep*/; 			//@Control signal: allows to select the operand for getting srcB number on mux 'Mux4_1_forALU'
+wire sel_muxALU_srcB/*synthesis keep*/; 			//@Control signal: allows to select the operand for getting srcB number on mux 'Mux4_1_forALU'
 
 
 /***************************************************************
@@ -79,7 +81,7 @@ Signals for Memory unit
 
 wire [DATA_WIDTH-1:0]Data_RAM/* synthesis keep */;
 wire [DATA_WIDTH-1:0]Instruction_fetched/*synthesis keep*/; 	//signal from FF to Register files to indicate instruction
-wire [DATA_WIDTH-1:0]DataMemory/*synthesis keep*/;	/* Output of FF from Data Memory  */	
+//wire [DATA_WIDTH-1:0]DataMemory/*synthesis keep*/;	/* Output of FF from Data Memory  */	
 wire [DATA_WIDTH-1 : 0] WD_input/*synthesis keep*/;	//output of demux module to data input of Memory unit
 wire MemWrite_wire;			//@Control signal: Write enable for the memory unit
 wire IRWrite_wire;			//@Control signal: Enable signal for FF to let the instruction pass to 'Prepare inst module'
@@ -137,7 +139,6 @@ wire [1:0] RegDst_wire/*synthesis keep*/;					/*@Control signal: for Write reg i
 wire [1:0]MemtoReg_wire/*synthesis keep*/;					/*@Control signal: for the Mux from ALU to Register File */
 wire RegWrite_wire/*synthesis keep*/;					/*@Control signal: Write enable for register file unit*/
 wire [DATA_WIDTH-1:0]datatoWD3/*synthesis keep*/;   	/* Conexion from MUX to select a Data from Memory or from ALU. 0=ALU,1=Memory */
-wire [DATA_WIDTH-1:0]DataMemory/*synthesis keep*/;	/* Output of FF from Data Memory  */	
 wire RDx_FF_en_wire;				/*@Control signal: to enable FF to MUX to ALU */
 wire [DATA_WIDTH-1:0] Mem_or_Periph_Data;
 
@@ -153,8 +154,23 @@ wire [DATA_WIDTH-1:0]reserved_output_wb;
 Signals for MUX ALU result / Lo Reg
 ***************************************************************/
 wire mflo_flag;
+/***************************************************************
+Signals for the Virtual Memory unit 
+***************************************************************/
+wire aligment_error_wire;
+wire aligment_error_RAM_wire;
+wire [DATA_WIDTH-1:0] translated_addr_wire/*synthesis keep*/;
+wire [DATA_WIDTH-1:0] MIPS_address/*synthesis keep*/;
+wire [DATA_WIDTH-1:0] MIPS_RAM_address/*synthesis keep*/;
+
+/***************************************************************
+Signals for Branch instructions
+***************************************************************/
+wire Branch_wire;
 
 
+assign DataRx_out = DataRx[7:0]/*synthesis keep*/;
+assign Rx_flag = Rx_flag_out[0];
 //####################   Shift and concatenate jump address module ####################
 Shift_Concatenate shiftConcat_mod
 (
@@ -214,7 +230,7 @@ Register#(
 (		
     .clk(clk),
     .reset(reset),
-    .enable(1),	        /* Does not need a control signal */
+    .enable(1'b1),	        /* Does not need a control signal */
     .Data_Input(PC_source), 	//This comes from the ALU Result after MUX_for_PC_source
     .Data_Output(PC_current)	//output Program counter update
 );
@@ -240,7 +256,9 @@ VirtualMemory_unit #(
     .ADDR_WIDTH(DATA_WIDTH)
 )VirtualAddress_ROM
 (
+    /* input */
     .address(PC_current),
+    /* output */
     .translated_addr(translated_addr_wire),
     .MIPS_address(MIPS_address),
     .aligment_error(aligment_error_wire)
@@ -251,8 +269,8 @@ VirtualMemory_unit #(
 Memory_ROM#(
     .DATA_WIDTH(DATA_WIDTH), 		//data length   
 	.ADDR_WIDTH(8)			//bits to address the elements
-)(
-    .addr(translated_addr_wire),	//Address for rom instruction mem. Program counter
+)ROM(
+    .addr(translated_addr_wire[7:0]),	//Address for rom instruction mem. Program counter
 	//output
 	.q(Instruction_fetched)
 );
@@ -281,8 +299,10 @@ VirtualAddress_RAM #(
     .ADDR_WIDTH(DATA_WIDTH)
 )VirtualRAM_Mem
 (
+    /* inputs */
     .address(demux_aluout_0),	
     .swdetect(sw_inst_detector),
+    /* outputs */
     .translated_addr(ALUOut_Translated),
     .MIPS_address(MIPS_RAM_address),
     .aligment_error(aligment_error_RAM_wire),
@@ -298,13 +318,13 @@ VirtualAddress_RAM #(
 //####################     RAM  unit   #######################
 
 Memory_RAM #(
-    .DATA_WIDTH(DATA_WIDTH), 		//data length
-	.ADDR_WIDTH(8)			//bits to add
+    .DATA_WIDTH(DATA_WIDTH), 	//data length
+	.ADDR_WIDTH(8)			    //bits to add
 )mem_RAM(
 
-    .addr(ALUOut_Translated),	//Address for ram
-	.wdata(WD_input),	//Write Data for RAM data memory
-    .we(MemWrite_wire),						//Write enable signal
+    .addr(ALUOut_Translated[7:0]),	    //Address for ram
+	.wdata(WD_input),               //Write Data for RAM data memory
+    .we(MemWrite_wire),				//Write enable signal
 	.clk(clk), 							
 	//output
 	.q(Data_RAM)
@@ -316,7 +336,7 @@ mux2to1#(.Nbit(DATA_WIDTH))
 MUX_Mem_or_Periph_to_MUXWriteData
 (
     .mux_sel(Data_selector_uart_or_mem),				//@Control signal: Instruction or Data selection. 1=from ALU
-    .data1(DataMemory), 				//0=Comes from 'PC_Reg'	    
+    .data1(Data_RAM), 				//0=Comes from 'PC_Reg'	    
     .data2(DataRx), 					//1=From ALUOut signal 
     .Data_out(  Mem_or_Periph_Data ) 	//this have the Address for Memory input
 );
@@ -341,33 +361,40 @@ mux4to1 #(
 ControlUnit CtrlUnit(
     /* Inputs */
     .clk(clk), 						//clk signal
-    .reset(reset), 					//async signal to reset 	
-    .Opcode(opcode_wire),
-    .Funct(funct_wire),
-    .Zero(zero),    
-    .Start_uart_tx_input(Start_uartTx_input_wire),
-    /* Outputs */    
-    .MemWrite(MemWrite_wire),    
-    .RegDst(RegDst_wire),   
-    .MemtoReg(MemtoReg_wire),    
-    .Branch(Branch_wire),
-    .PCSrc(PCSrc_wire),
-    .ALUControl(ALUControl_wire),
-    .ALUSrcB(sel_muxALU_srcB),
-    /* .ALUSrcA(ALUSrcA_wire), */
-    .RegWrite(RegWrite_wire),
-    //.ALUresult_en(ALUresult_en_wire),
-    .PC_En(PC_En_wire),
-    .flag_J_type_out(flag_Jtype_wire),
-    .flag_sw_out(sw_inst_detector),
-    .flag_lw_out(lw_inst_detector),
-    .mult_operation_out(demux_aluout_sel),		//this controls if the result is saved in Lo-Hi reg(1) or Reg file (0)
-    .mflo_flag_out(mflo_flag),
-    .selectPC_out(startPC_wire),
-    .see_uartflag(see_uartflag_wire),
-    .Start_uart_tx_output( Start_uartTx_output_wire  )	 
-    );
+    .reset(reset), 					//async s ignal to reset 	
+    .sw_flag(sw_inst_detector),
+    /* Outputs */
+    .Start_PC(startPC_wire),
+    .RegWrite(RegWrite_wire)
+);
 
+
+
+
+decode_instruction decoder_module
+(
+    /* Inputs */
+	.opcode_reg(opcode_wire),
+	.funct_reg(funct_wire),
+    .addr_input(translated_addr_wire[7:0]),
+    .zero(zero),
+    /* Outputs */
+	.RegDst_reg(RegDst_wire), //1: R type, 0: I type
+	.ALUControl(ALUControl_wire),
+	.flag_sw(sw_inst_detector),
+	.flag_lw(lw_inst_detector),
+    .flag_R_type(flag_R_type_wire), 
+    .flag_I_type(flag_I_type_wire), 
+    .flag_J_type(flag_Jtype_wire),
+	.ALUSrcBselector(sel_muxALU_srcB),    //allows to select the operand for getting srcB number
+    .mult_operation(demux_aluout_sel),
+    .mflo_flag(mflo_flag),    
+    .MemtoReg(MemtoReg_wire),
+    .see_uartflag_ind(see_uartflag_wire),    
+	.MemWrite(MemWrite_wire),
+	/* .RegWrite(RegWrite_wire), */
+	.PC_En(PC_En_wire)
+);
 
 
 //####################     UART controller unit   #######################
@@ -385,7 +412,7 @@ UART_controller #(
     .clr_rx_flag(clr_rx_flag),
     .clr_tx_flag(clr_tx_flag),
     .uart_tx(uart_tx_input),        /* Data to transmit */
-    .Start_Tx( Start_uartTx_output_wire  ),            /* Input */
+    .Start_Tx( Start_uartTx_input_wire  ),            /* Input */
     .enable_StoreTxbuff(  enable_StoreTxbuff_output   ),
     /* outputs */
     .UART_data(DataRx),
@@ -422,7 +449,7 @@ Adder #(
 Adder #(
     .DATA_WIDTH(DATA_WIDTH)
 )Adder_branch(
-    .A(PC_next),
+    .A(PC_next),       
     .B(shifted2 ),
     .C(Branch_addr_wire)
 );
