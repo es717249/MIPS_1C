@@ -3,6 +3,8 @@ Testing MIPS_1C.v:
 
     Simulation with modelsim:
     vsim -voptargs=+acc=npr
+
+    Look at 55225ps
 */
 module MIPS_1C_TB;
 

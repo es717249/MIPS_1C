@@ -1,8 +1,8 @@
 module ControlUnit
 #(
     //Machine states
-	parameter IDLE=0,
-	parameter NORMAL=1	
+	parameter IDLE=1'd0,
+	parameter NORMAL=1'd1	
 )
 (
     /* Inputs */

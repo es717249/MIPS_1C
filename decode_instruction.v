@@ -67,7 +67,7 @@ assign MemWrite = MemWrite_reg;		/* Signal to write to RAM memory */
 assign PC_En  = 1 ;    /* Signal for Program counter enable register */
 
 
-always @(opcode_reg,funct_reg) begin	
+always @(opcode_reg,funct_reg,zero) begin	
 
 //Starts decoding 
 	if(opcode_reg==6'd0)begin //is an R type instruction, destination_reg_indicator=1
@@ -217,10 +217,13 @@ always @(opcode_reg,funct_reg) begin
 				flag_sw_reg=1'b0;		
 				ALUSrcBselector_reg=1'd0;	
 				flag_I_type_reg = 1;	//Indicate it is I type instruction
+				
+
 				if(zero==1'b1)begin
 				   flag_J_type_reg = 3;	//To select Branch_addr in "MUX_to_updatePC_withJump" mux
 				end else begin
-                   flag_J_type_reg = 0;	//To select Branch_addr in "MUX_to_updatePC_withJump" mux
+				   //if(zero==1'b0)
+                     flag_J_type_reg = 0;	//Don't branch
 				end
 				MemWrite_reg    =0; /* not relevant */
 				
